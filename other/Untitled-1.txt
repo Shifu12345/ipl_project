@@ -1,0 +1,321 @@
+# #######################################################################################
+#  DAG Name   : rfnd_bq_pmas_control_table                                             
+#  Revision   : 1.0                                                                     
+#  Description: DAG to populate control file data to Table - macys-mktg-anlytcs-appdata.marketing_analytics_base.t_pmas_control_table
+#  Created On : Jan-08-2024                                                             
+#  Created By : Satyam Prakash (B27166)                                        
+#  Revision History                                                                      
+#  Sr  Rev  Date       Created by            Change Description             
+#  1  1.0  2023/10/10  H078876                Initial version
+#  2  2.0  2024/07728  H078876                Enhancement
+# #######################################################################################     
+
+
+#import libraries
+import os, time, json
+from airflow import DAG, models
+from airflow.operators.python import PythonOperator
+from airflow.utils.trigger_rule import TriggerRule
+from airflow.models import Variable
+from google.cloud import bigquery
+from airflow.operators.dummy import DummyOperator
+from airflow.operators.python import PythonOperator, BranchPythonOperator
+from airflow.providers.google.cloud.operators.bigquery import BigQueryExecuteQueryOperator
+from airflow.providers.google.cloud.transfers.bigquery_to_gcs import BigQueryToGCSOperator
+from airflow.operators.bash import BashOperator
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
+from pytz import timezone
+from pandas_gbq import read_gbq
+from datetime import date, timedelta, datetime
+from airflow.operators.email import EmailOperator
+from google.cloud import bigquery
+
+
+# set timezone
+tz = timezone('EST')
+run_datetime = datetime.now(tz).strftime("%Y%m%d%H%M%S")
+
+def defining_tasks(task_name_in_config,write_disposition_defined):
+
+    params = {
+    "source_project_1": "{}".format(paramf['source_details']['source_project_1']),
+    "source_project_2": "{}".format(paramf['source_details']['source_project_2']),
+    "source_dataset_1": "{}".format(paramf['source_details']['source_dataset_1']),
+    "source_dataset_2": "{}".format(paramf['source_details']['source_dataset_2']),
+    "source_table_1": "{}".format(paramf['source_details']['source_table_1']),
+    "source_table_2": "{}".format(paramf['source_details']['source_table_2']),
+    "source_table_3": "{}".format(paramf['source_details']['source_table_3']),
+    "source_table_4": "{}".format(paramf['source_details']['source_table_4']),
+    "source_table_5": "{}".format(paramf['source_details']['source_table_5']),
+    "destination_project": "{}".format(paramf['schema_details']['destination_project']),
+    "staging_schema": "{}".format(paramf['schema_details']['schema_stage']),
+    "schema_base": "{}".format(paramf['schema_details']['schema_base']),
+    "schema_enriched": "{}".format(paramf['schema_details']['schema_enriched']),
+    "schema_archive": "{}".format(paramf['schema_details']['schema_archive']),
+    "schema_ref": "{}".format(paramf['schema_details']['schema_ref']),
+    "bq_connection_id": "{}".format(paramf['connection_details']['bq_connection_id']),
+    "sql_name_stg": "{}".format(paramf['Insert_t_stg_pdfm_mcom_brandurl_lkp']['sql_name']),
+    "destination_schema_stg": "{}".format(paramf['Insert_t_stg_pdfm_mcom_brandurl_lkp']['destination_schema']),
+    "destination_table_stg": "{}".format(paramf['Insert_t_stg_pdfm_mcom_brandurl_lkp']['destination_table']),
+    "sql_name_ref": "{}".format(paramf['Insert_t_pdfm_mcom_brandurl_lkp']['sql_name']),
+    "destination_schema_ref": "{}".format(paramf['Insert_t_pdfm_mcom_brandurl_lkp']['destination_schema']),
+    "destination_table_ref": "{}".format(paramf['Insert_t_pdfm_mcom_brandurl_lkp']['destination_table']),
+    "sql_name_hist": "{}".format(paramf['Insert_t_pdfm_mcom_brandurl_lkp_hist']['sql_name']),
+    "destination_schema_hist": "{}".format(paramf['Insert_t_pdfm_mcom_brandurl_lkp_hist']['destination_schema']),
+    "destination_table_hist": "{}".format(paramf['Insert_t_pdfm_mcom_brandurl_lkp_hist']['destination_table']),
+    "source_file_pattern": "{}".format(paramf['gcs_details']['source_file_pattern']),
+    "file_name_suffix": "{}".format(paramf['gcs_details']['file_name_suffix']),
+    "source_gcs_path": "{}".format(paramf['gcs_details']['source_gcs_path']),
+    "process_gcs_path": "{}".format(paramf['gcs_details']['process_gcs_path']),
+    "archive_gcs_path": "{}".format(paramf['gcs_details']['archive_gcs_path']),
+    "destination_dataset": "{}".format(paramf['gcs_details']['destination_dataset']),
+    "archive_period": "{}".format(paramf['gcs_details']['archive_period']),
+    "field_delimiter": "{}".format(paramf['gcs_details']['field_delimiter']),
+    "invalid_gcs_path": "{}".format(paramf['gcs_details']['invalid_gcs_path']),
+    "invalid_file_pattern": "{}".format(paramf['gcs_details']['invalid_file_pattern'])
+    }
+
+    if ( write_disposition_defined != '' ):
+            task_definition = BigQueryExecuteQueryOperator(
+                    dag = dag, 
+                    task_id = task_name_in_config , 
+                    sql = sqlDir + paramf['{}'.format(task_name_in_config)]['sql_name'],
+                    use_legacy_sql = False,
+                    params = params,
+                    destination_dataset_table = '{}.{}.{}'.format(paramf['{}'.format('schema_details')]['destination_project'], paramf['{}'.format('schema_details')]['{}'.format(paramf['{}'.format(task_name_in_config)]['destination_schema'])], paramf['{}'.format(task_name_in_config)]['destination_table']),
+                    write_disposition = write_disposition_defined,
+                    create_disposition = 'CREATE_IF_NEEDED',
+                    bigquery_conn_id = '{}'.format(paramf['{}'.format('connection_details')]['bq_connection_id']),
+                    trigger_rule=TriggerRule.ALL_SUCCESS)
+    else:
+        task_definition = BigQueryExecuteQueryOperator(
+                dag = dag, 
+                task_id = task_name_in_config , 
+                sql = sqlDir + paramf['{}'.format(task_name_in_config)]['sql_name'],
+                use_legacy_sql = False,
+                params = params,
+                bigquery_conn_id = '{}'.format(paramf['{}'.format('connection_details')]['bq_connection_id']),
+                trigger_rule=TriggerRule.ALL_SUCCESS)
+                                
+    return task_definition
+
+
+
+
+
+## check whether files present in bucket or not
+def check_files_in_bucket_fn(**kwargs):
+    print('checking files in bucket')
+    ti = kwargs['ti']
+    print('PULL VALUE: ', ti.xcom_pull(key='return_value', task_ids='Check_New_Files_in_Bucket'))
+    result = ti.xcom_pull(task_ids='Check_New_Files_in_Bucket')
+    if result == '1':
+        return 'Move_file_from_inbound_to_process_folder'
+    elif result == '0':
+        return 'No_Files'
+    else:
+        return 'More_than_one_files'   
+    
+##invalid record count    
+def invalid_record_count(**kwargs):
+    bql = kwargs['templates_dict']['bql']    
+    df =  read_gbq(bql, dialect='standard')    
+    rec_count = df['rec_cnt']
+    print ('rec_count ',rec_count)
+
+    #-----------------------------------------------------------------
+    ### check for rec_count and fail dag if 0 records in staging table
+    if int(rec_count) == 0:
+        return fail_dag
+    else:
+        return Insert_t_pdfm_mcom_brandurl_lkp,Insert_t_pdfm_mcom_brandurl_lkp_hist
+    #########################################
+    #-----------------------------------------------------------------
+
+    #######clarification
+    if (int(rec_count) > 0):
+        return 'Insert_t_stg_pmas_invalid_records'          
+    elif int(rec_count) == 0:
+        return 'Insert_t_stg_pmas_control_table_temp1'    
+    #####################################       
+
+##clear the airflow variable
+def clear_airflow_variables_fn(**kwargs): 
+    for k, v in kwargs['templates_dict'].items():
+        print('the key value pair is',k,v)
+        Variable.update(key=k, value=v)
+
+
+# create a dictionary of default typical args to pass to the dag
+default_args = {
+    'start_date'        : (date.today()- timedelta(days=1)).strftime("%Y%m%d") ,  
+    'retries'           : 1,
+    'depend_on_past'    : False,
+    'retry_delay'       : timedelta(minutes=2)
+}
+  
+# define the dag
+dag = DAG(
+            'pdfm_mcom_seo_brandurl_lkp', 
+            schedule_interval=None,
+            #concurrency=1,
+            max_active_runs= 1,
+            max_active_tasks=1,
+            default_args = default_args
+            #catchup = False
+          )
+
+sqlDir = 'bq_sql/'
+
+# Reading a config file with list of tables that needs to be processed
+config_file = (os.path.dirname(os.path.realpath(__file__))) + "/config/pdfm_mcom_seo_brandurl_lkp.json"
+with open(config_file) as f:
+    paramf = json.load(f)
+
+    ##Get the airflow variable value for "pdfm_mcom_seo_brandurl_lkp"
+    archive_period = Variable.get("pdfm_mcom_seo_brandurl_lkp_archive_period")
+    if (not archive_period):
+        archive_period = paramf["gcs_details"]["archive_period"]
+
+    ##Get the airfloe variable value for "pdfm_mcom_seo_brandurl_lkp"
+    filename = Variable.get("pdfm_mcom_seo_brandurl_lkp_control_file")
+    if (not filename):
+        filename=paramf["gcs_details"]["source_file_pattern"]+paramf["gcs_details"]["file_name_suffix"]    
+
+    ##Check the file exist or not in control file folder
+    check_files_in_bucket = "set -e; set -x; gsutil ls {source_gcs_path}/{source_file} | wc -l ".format(\
+        source_gcs_path=paramf["gcs_details"]["source_gcs_path"],\
+                        source_file=filename)
+    
+    #clean process folder
+    Clean_Process_Folder= """set -e; set -x; cnt=$( gsutil -m ls {process_path}/{file} | wc -l ); if [ $cnt != 0 ]; then gsutil -m rm {process_path}/{file}; else echo 0; fi""".format(process_path=paramf["gcs_details"]["process_gcs_path"],file=filename )
+    
+
+    task_start = BashOperator(
+    task_id = "Clean_Process_Folder",
+    bash_command = Clean_Process_Folder,
+    params=paramf, 
+    dag=dag
+    )    
+
+    ##check_files into GCS process folder
+    task_1 = BashOperator(
+        task_id="Check_New_Files_in_Bucket",
+        bash_command=check_files_in_bucket,
+        params=paramf,
+        dag=dag
+    )
+
+    ##verify the result based on file existance
+    task_2 = BranchPythonOperator(
+        dag=dag,
+        task_id='Branching_Depending_on_Files_Present',
+        python_callable=check_files_in_bucket_fn,
+        provide_context=True
+    )
+
+    ##if there is no file then end the DAG
+    task_3 =  DummyOperator(
+        task_id='No_Files',
+        dag=dag
+    )    
+
+    ##if multiple files are present in process folder then DAG will get fail
+    task_4 = BashOperator(
+        task_id='More_than_one_files',
+        bash_command="exit 1",
+        dag=dag
+    )
+
+    ##script for move the file from inbound to process
+    move_inbound_to_process = """set -e; set -x; gsutil mv {source_gcs_path}/{file} {process_gcs_path}/"""\
+        .format(source_gcs_path=paramf["gcs_details"]["source_gcs_path"],file=filename,\
+                process_gcs_path=paramf["gcs_details"]["process_gcs_path"])  
+
+    
+    ##Move the file from inbound to process folder        
+    task_5 = BashOperator(
+        task_id = "Move_file_from_inbound_to_process_folder",
+        bash_command = move_inbound_to_process,
+        params=paramf,
+        dag=dag
+        )
+    
+    #----------------------------------------------------------
+    #### fail_dag if no records present in stg table ######
+    fail_dag = BashOperator(
+        task_id="fail_dag",
+        bash_command="exit 1",
+        dag=dag
+        )
+    ##############################################
+    #----------------------------------------------------------
+
+
+    ##Insert the data from extn table to stg table
+    Insert_t_stg_pdfm_mcom_brandurl_lkp = defining_tasks('Insert_t_stg_pdfm_mcom_brandurl_lkp','WRITE_TRUNCATE')
+    ##Insert the data from stg to lkp table
+    Insert_t_pdfm_mcom_brandurl_lkp = defining_tasks('Insert_t_pdfm_mcom_brandurl_lkp','WRITE_TRUNCATE')
+    ##Insert the data from stg table to lkp hist table
+    Insert_t_pdfm_mcom_brandurl_lkp_hist = defining_tasks('Insert_t_pdfm_mcom_brandurl_lkp_hist','WRITE_APPEND')
+
+    ##script for move the file from process to archive
+    move_process_to_archive = """set -e; set -x; gsutil mv {process_gcs_path}/{file} {archive_gcs_path}/"""\
+        .format(process_gcs_path=paramf["gcs_details"]["process_gcs_path"],file=filename,\
+                archive_gcs_path=paramf["gcs_details"]["archive_gcs_path"]) 
+
+    
+
+    #Move the source file into archive folder        
+    task_10 = BashOperator(
+        task_id = "Move_file_from_process_to_archive_folder",
+        bash_command = move_process_to_archive,
+        params=paramf,
+        dag=dag
+        )    
+
+    ##Insert the data from stg table to temp1 table
+    #Insert_t_stg_pmas_control_table_validation = defining_tasks('Insert_t_stg_pmas_control_table_validation','WRITE_TRUNCATE')
+
+    ##Get the invalid record count
+    check_if_records_exists = """select count(*) rec_cnt from `{project_id}.{dataset_id}.{source_table}`  """\
+        .format(project_id=paramf['source_details']['source_project_2'],\
+            dataset_id=paramf['source_details']['source_dataset_1'],\
+            source_table=paramf['source_details']['source_table_2'] )
+                                                                        
+    ##Branching task by Stage table count
+    invalid_record_count_chk = BranchPythonOperator(
+        task_id='check_if_records_exists',
+        dag=dag,
+        python_callable=invalid_record_count,
+        provide_context=True,
+        params=paramf,
+        templates_dict = {"bql" : check_if_records_exists}
+        #bash_command="exit 1"
+        )      
+
+
+# Define task dependencies
+task_start >> task_1 >> task_2
+
+# Branching logic
+task_2 >> task_3  # No files
+task_2 >> task_4  # More than one file
+task_2 >> task_5  # One file, move to process folder
+
+# # Continue with further actions
+# task_5 >> Insert_t_stg_pdfm_mcom_brandurl_lkp  # Load data into staging table
+# Insert_t_stg_pdfm_mcom_brandurl_lkp >> invalid_record_count_chk  # Check for invalid records
+# Insert_t_stg_pdfm_mcom_brandurl_lkp >> Insert_t_pdfm_mcom_brandurl_lkp  # Load data into lookup table
+# Insert_t_stg_pdfm_mcom_brandurl_lkp >> Insert_t_pdfm_mcom_brandurl_lkp_hist  # Load data into history table
+# Insert_t_pdfm_mcom_brandurl_lkp_hist >> task_10  # Move file to archive folder
+
+
+#------------------------------------------------------------------------------------------------------------------
+# Continue with further actions
+task_5 >> Insert_t_stg_pdfm_mcom_brandurl_lkp  # Load data into staging table
+Insert_t_stg_pdfm_mcom_brandurl_lkp >> invalid_record_count_chk  # Check for invalid records
+invalid_record_count_chk >> [Insert_t_pdfm_mcom_brandurl_lkp,Insert_t_pdfm_mcom_brandurl_lkp_hist]  # Load data into lookup table and history table
+Insert_t_pdfm_mcom_brandurl_lkp_hist >> task_10  # Move file to archive folder
+#------------------------------------------------------------------------------------------------------------------

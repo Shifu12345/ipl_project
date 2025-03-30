@@ -1,0 +1,12 @@
+Task----------check_if_records_exists 
+select count(*) rec_cnt from `macys-mktg-anlytcs-appdata-uat.marketing_analytics_transient.t_stg_pdfm_mcom_brandurl_lkp` 
+
+
+-----After using Write disposition as write append
+DELETE FROM `lkp table name` 
+WHERE TRUE;-----truncate table
+
+-----insert into table
+INSERT INTO `lkp table name`
+SELECT *
+FROM `stg table name`;
