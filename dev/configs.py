@@ -10,7 +10,10 @@ base_directory_data=r"C:\Users\harsh\Downloads\ipl_project\data"
 
 
 #GCP directory
-
+gcp_project_name="synthetic-style-439016-b9"
+service_account_bq_json=r"C:\Users\harsh\Downloads\ipl_project\keys\bq_key.json"
+dataset='ipl'
+dataset_prod='ipl_prod'
 service_account_bq_json=r"E:\Sivadatt K\ipl_json\bq_files_and_py\synthetic-style-439016-b9-3f5b87717517.json"
 dataset='ipl'
 ball_by_ball_table='ball_by_ball_score_card'
@@ -18,6 +21,7 @@ playing_11_table='playing_11'
 match_summary_table='match_summary'
 player_registry_table='player_registry'
 audit_table='audit_table'
+file_audit_table='file_audit_table'
 file_audit_table='files_audit_table'
 process_audit_table='process_audit_table'   
 
@@ -101,6 +105,11 @@ scorecard_schema=[
     bigquery.SchemaField("is_legbye", "STRING"),
     bigquery.SchemaField("wides", "INTEGER"),
     bigquery.SchemaField("no_ball", "INTEGER"),
+    bigquery.SchemaField("extras", "INTEGER"),
+    bigquery.SchemaField("is_wicket", "STRING"),
+    bigquery.SchemaField("how_out", "STRING"),
+    bigquery.SchemaField("who_out", "STRING"),
+    bigquery.SchemaField("fielder", "STRING"),
     bigquery.SchemaField("legbyes", "INTEGER"),
     bigquery.SchemaField("extras", "INTEGER"),
     bigquery.SchemaField("is_wicket", "STRING"),
@@ -124,11 +133,13 @@ audit_table_schema=[
 ]
 
 file_audit_schema=[
-    bigquery.SchemaField("process_id","STRING"),
-    bigquery.SchemaField("files_processed","INTEGER"),
+    bigquery.SchemaField("file_name","STRING"),
+    bigquery.SchemaField("processed_flag","STRING"),
     bigquery.SchemaField("process_start","TIMESTAMP"),
     bigquery.SchemaField("process_end","TIMESTAMP")
 ]
+
+file_audit_columns=["file_name","processed_flag","process_start","process_end"]
 
 #Azure directory
 
@@ -143,4 +154,5 @@ playing_11_csv_local=r"C:\Users\harsh\Downloads\ipl_project\data\processed_files
 playing_11_parquet_local=r"C:\Users\harsh\Downloads\ipl_project\data\processed_files\playing_11\parquet"
     
 scorecard_match_wise_parquet=r"C:\Users\harsh\Downloads\ipl_project\data\processed_files\scorecard\parquet"
+scorecard_match_wise_csv=r"C:\Users\harsh\Downloads\ipl_project\data\processed_files\scorecard\csv\scorecard.csv"
 scorecard_match_wise_csv=r"C:\Users\harsh\Downloads\ipl_project\data\processed_files\scorecard\csv\scorecard.csv"
